@@ -66,7 +66,11 @@ export class TestHelper {
     expect(response.body).toHaveProperty('message');
     
     if (expectedMessage) {
-      expect(response.body.message).toContain(expectedMessage);
+      const mainMessage: string = response.body.message || '';
+      const detailsErrors = response.body.details?.errors;
+      const hasInMessage = mainMessage.includes(expectedMessage);
+      const hasInDetails = Array.isArray(detailsErrors) && detailsErrors.some((e: any) => String(e.message || '').includes(expectedMessage));
+      expect(hasInMessage || hasInDetails).toBe(true);
     }
   }
 

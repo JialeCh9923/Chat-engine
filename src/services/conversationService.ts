@@ -61,9 +61,11 @@ export class ConversationService {
         messages: [],
         context: {
           currentTopic: context?.currentTopic || 'general',
-          extractedData: context?.extractedData || {},
+          extractedData: (context?.extractedData instanceof Map)
+            ? (context.extractedData as any)
+            : new Map(Object.entries(context?.extractedData || {})),
           userIntent: context?.userIntent || 'unknown',
-          conversationState: context?.conversationState || 'active',
+          conversationState: context?.conversationState || 'greeting',
           pendingActions: context?.pendingActions || [],
           flags: context?.flags || {},
         },
@@ -188,15 +190,19 @@ export class ConversationService {
         conversation.context
       );
 
-      // Update context with analyzed intent
+      // Update context with analyzed intent (Map-safe merge)
       conversation.context.userIntent = intent.intent;
-      conversation.context.extractedData = {
-        ...conversation.context.extractedData,
-        ...intent.entities.reduce((acc, entity) => {
-          acc[entity.type] = entity.value;
-          return acc;
-        }, {} as any),
-      };
+      const existingMap = conversation.context.extractedData instanceof Map
+        ? (conversation.context.extractedData as Map<string, any>)
+        : new Map(Object.entries((conversation.context.extractedData as any) || {}));
+      const newEntries: [string, any][] = (intent.entities || []).reduce((acc: [string, any][], entity: any) => {
+        acc.push([entity.type, entity.value]);
+        return acc;
+      }, []);
+      for (const [k, v] of newEntries) {
+        existingMap.set(k, v);
+      }
+      conversation.context.extractedData = existingMap as any;
 
       // Generate response using OpenAI
       const completion = await openaiService.generateChatCompletion(
@@ -329,14 +335,18 @@ export class ConversationService {
         conversation.context.userIntent = intent.intent;
         conversation.context.currentTopic = this.determineTopic(message, intent);
         
-        // Merge extracted data
-        conversation.context.extractedData = {
-          ...conversation.context.extractedData,
-          ...intent.entities.reduce((acc, entity) => {
-            acc[entity.type] = entity.value;
-            return acc;
-          }, {} as any),
-        };
+        // Merge extracted data (Map-safe)
+        const existingMap = conversation.context.extractedData instanceof Map
+          ? (conversation.context.extractedData as Map<string, any>)
+          : new Map(Object.entries((conversation.context.extractedData as any) || {}));
+        const newEntries: [string, any][] = (intent.entities || []).reduce((acc: [string, any][], entity: any) => {
+          acc.push([entity.type, entity.value]);
+          return acc;
+        }, []);
+        for (const [k, v] of newEntries) {
+          existingMap.set(k, v);
+        }
+        conversation.context.extractedData = existingMap as any;
 
         // Update pending actions based on intent
         if (intent.suggestions && Array.isArray(intent.suggestions)) {
@@ -489,10 +499,18 @@ export class ConversationService {
         conversation.status = updateData.status;
       }
       if (updateData.metadata !== undefined) {
-        conversation.context.extractedData = {
-          ...conversation.context.extractedData,
-          ...updateData.metadata,
-        };
+        const existing = conversation.context?.extractedData as any;
+        const baseObj = existing instanceof Map
+          ? Object.fromEntries(existing as Map<any, any>)
+          : (existing && typeof existing === 'object') ? existing : {};
+        const baseMap = existing instanceof Map
+          ? (existing as Map<any, any>)
+          : new Map(Object.entries(baseObj));
+        for (const [k, v] of Object.entries(updateData.metadata || {})) {
+          baseMap.set(k as string, v);
+        }
+        conversation.context = conversation.context || ({} as any);
+        conversation.context.extractedData = baseMap as any;
       }
 
       conversation.updatedAt = new Date();

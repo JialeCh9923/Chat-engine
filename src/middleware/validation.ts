@@ -118,15 +118,26 @@ export const validateSessionId = [
  * Conversation validation rules
  */
 export const validateCreateConversation = [
-  body('sessionId')
+  // Require at least one of title or metadata
+  body()
+    .custom((_, { req }) => {
+      const { title, metadata } = req.body || {};
+      const hasTitle = typeof title === 'string' && title.trim().length > 0;
+      const hasMetadata = metadata && typeof metadata === 'object';
+      return hasTitle || hasMetadata;
+    })
+    .withMessage('Either title or metadata is required'),
+
+  body('title')
+    .optional()
     .isString()
-    .isLength({ min: 1 })
-    .withMessage('Session ID is required'),
+    .isLength({ min: 1, max: 200 })
+    .withMessage('Title must be between 1 and 200 characters'),
   
-  body('message')
-    .isString()
-    .isLength({ min: 1, max: 10000 })
-    .withMessage('Message must be between 1 and 10000 characters'),
+  body('metadata')
+    .optional()
+    .isObject()
+    .withMessage('Metadata must be an object'),
   
   body('context')
     .optional()
@@ -142,9 +153,14 @@ export const validateAddMessage = [
     .isLength({ min: 1 })
     .withMessage('Conversation ID is required'),
   
-  body('message')
-    .isString()
-    .isLength({ min: 1, max: 10000 })
+  // Accept either `message` or `content` for backward compatibility
+  body(['message', 'content'])
+    .custom((value, { req }) => {
+      const msg = req.body.message ?? req.body.content;
+      if (typeof msg !== 'string') return false;
+      const len = msg.trim().length;
+      return len >= 1 && len <= 10000;
+    })
     .withMessage('Message must be between 1 and 10000 characters'),
   
   body('role')

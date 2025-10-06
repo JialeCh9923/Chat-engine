@@ -233,13 +233,18 @@ export class ConversationController {
    */
   static addMessageWithStreaming = asyncHandler(async (req: Request, res: Response) => {
     const { conversationId } = req.params;
-    const { message, role = 'user' } = req.body;
+    const roleRaw = (req.body.role as string) || 'user';
+    const allowedRoles = ['user', 'assistant', 'system'] as const;
+    const role: 'user' | 'assistant' | 'system' = (allowedRoles as readonly string[]).includes(roleRaw)
+      ? (roleRaw as 'user' | 'assistant' | 'system')
+      : 'user';
+    const message = (req.body.message ?? req.body.content) as string;
     const sessionId = req.headers['x-session-id'] as string;
 
     logger.info('Adding message with streaming response', {
       conversationId,
       role,
-      messageLength: message.length,
+      messageLength: (message?.length ?? 0),
       sessionId,
     });
 
@@ -346,13 +351,18 @@ export class ConversationController {
    */
   static addMessage = asyncHandler(async (req: Request, res: Response) => {
     const { conversationId } = req.params;
-    const { content, role = 'user', generateResponse = true } = req.body;
     const sessionId = req.headers['x-session-id'] as string;
+
+    // Accept either `message` or `content` for backward compatibility
+    const rawMessage = typeof req.body.message === 'string' ? req.body.message : req.body.content;
+    const messageContent = typeof rawMessage === 'string' ? rawMessage : '';
+    const role = typeof req.body.role === 'string' ? req.body.role : 'user';
+    const generateResponse = req.body.generateResponse !== undefined ? Boolean(req.body.generateResponse) : true;
 
     logger.info('Adding message to conversation', {
       conversationId,
       role,
-      messageLength: content.length,
+      messageLength: messageContent.length,
       sessionId,
     });
 
@@ -374,7 +384,7 @@ export class ConversationController {
 
     const result = await conversationService.addMessage(
       conversationId,
-      content,
+      messageContent,
       role,
       generateResponse
     );
