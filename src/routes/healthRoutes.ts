@@ -5,9 +5,51 @@ import { config } from '../config';
 const router = Router();
 
 /**
- * @route   GET /api/health
- * @desc    Overall system health check
- * @access  Public
+ * @swagger
+ * /api/health:
+ *   get:
+ *     summary: System health check
+ *     description: Overall system health check endpoint
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: System is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       example: healthy
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *                     version:
+ *                       type: string
+ *                       example: 1.0.0
+ *                     environment:
+ *                       type: string
+ *                     uptime:
+ *                       type: number
+ *                     memory:
+ *                       type: object
+ *                     services:
+ *                       type: object
+ *                     endpoints:
+ *                       type: object
+ *       503:
+ *         description: System is unhealthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get('/', async (req: Request, res: Response) => {
   try {

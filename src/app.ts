@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
+import swaggerUi from 'swagger-ui-express';
 import { config } from './config';
 import logger from './utils/logger';
 import { apiRoutes } from './routes';
@@ -16,6 +17,7 @@ import { jobService } from './services/jobService';
 import { taxFormService } from './services/taxFormService';
 import { clientService } from './services/clientService';
 import { openaiService } from './services/openaiService';
+import { swaggerSpec } from './config/swagger';
 
 /**
  * Chat Engine Tax Filing Application
@@ -106,6 +108,19 @@ class ChatEngineApp {
    * Setup application routes
    */
   private setupRoutes(): void {
+    // Swagger JSON spec endpoint - MUST come before swagger-ui-express
+    this.app.get('/api-docs/swagger.json', (req: Request, res: Response) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.send(swaggerSpec);
+    });
+
+    // Swagger API documentation
+    this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+      explorer: true,
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'Chat Engine Tax Filing API Documentation',
+    }));
+
     // API routes
     this.app.use('/api', apiRoutes);
 
@@ -115,7 +130,7 @@ class ChatEngineApp {
         name: 'Chat Engine Tax Filing API',
         version: '1.0.0',
         description: 'RESTful API for tax filing chat engine with AI assistance',
-        documentation: '/api',
+        documentation: '/api-docs',
         health: '/health',
         timestamp: new Date().toISOString(),
       });
